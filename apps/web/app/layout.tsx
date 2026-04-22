@@ -3,13 +3,13 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Trackstack',
-  description: 'Project management for Ableton Live producers',
+  description: 'Version control for Ableton Live producers',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-gray-950 text-gray-100 antialiased">{children}</body>
+      <body className="antialiased">{children}</body>
     </html>
   )
 }

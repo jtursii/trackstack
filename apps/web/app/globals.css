@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Background orbs */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+/* Waveform bars — each bar runs this independently, staggered via negative delay */
+@keyframes waveBar {
+  0%, 100% { height: 3px; }
+  50%       { height: var(--bar-max, 12px); }
+}
+
+/* Sonar rings — expand from a point and fade out */
+@keyframes sonarExpand {
+  0%   { transform: scale(0); opacity: 0.5; }
+  60%  { opacity: 0.12; }
+  100% { transform: scale(1); opacity: 0; }
+}

@@ -4,6 +4,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 const AUTH_ROUTES = new Set(['/login', '/signup'])
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Landing page is public — skip Supabase entirely
+  if (pathname === '/') return NextResponse.next()
+
   // Start with a pass-through response; we may replace it if cookies change.
   let response = NextResponse.next({
     request: { headers: request.headers },
@@ -41,8 +46,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
 
   if (AUTH_ROUTES.has(pathname)) {
     // Authenticated users have no reason to see /login or /signup.

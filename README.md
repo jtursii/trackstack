@@ -1,6 +1,6 @@
 # Trackstack
 
-Version control for Ableton Live projects. The desktop app snapshots your `.als` file and audio samples on every "push," and the web app gives you a browsable history of commits from anywhere.
+Version control for Ableton Live projects. The desktop app snapshots your `.als` file and audio samples on every "push," and the web app gives you a browsable commit history from anywhere.
 
 ---
 
@@ -9,7 +9,7 @@ Version control for Ableton Live projects. The desktop app snapshots your `.als`
 ```
 trackstack/
 ├── apps/
-│   ├── web/          Next.js 14 SSR app — project history, auth
+│   ├── web/          Next.js 14 SSR app — dashboard, project history, auth
 │   └── desktop/      Tauri v2 + Next.js static export — local project scanning, push
 ├── packages/
 │   ├── core/         Shared Supabase client + TypeScript types
@@ -30,9 +30,14 @@ npm run dev:web
 |------|-------------|
 | `/login` | Sign in with email + password |
 | `/signup` | Create an account |
-| `/dashboard` | Project history (requires auth) |
+| `/dashboard` | Home — recent activity, pinned projects, push history |
+| `/dashboard/projects` | All repositories with search |
+| `/dashboard/projects/[id]` | Commit history for a single project |
+| `/dashboard/projects/[id]/commit/[id]` | Commit detail — changed files, audio preview |
+| `/dashboard/activity` | Full activity feed across all projects |
+| `/dashboard/settings` | Account settings |
 
-All routes except `/login` and `/signup` redirect to `/login` if you're not signed in.
+All routes under `/dashboard` redirect to `/login` if you're not signed in.
 
 ---
 
@@ -56,7 +61,7 @@ cd apps/desktop
 npm run tauri:dev
 ```
 
-Starts the Next.js dev server on port 3001 and opens a real native desktop window. This is the one you want for actual testing. Hot reload works.
+Starts the Next.js dev server on port 3001 and opens a real native desktop window. This is what you want for actual testing. Hot reload works.
 
 ### Building a distributable
 
@@ -101,14 +106,38 @@ The Rust backend exposes two commands over Tauri IPC:
 
 ## Auth: web vs desktop
 
-The web app stores sessions in **cookies** — the Next.js middleware can validate them server-side on every request.
+The web app stores sessions in **cookies** — the Next.js middleware validates them server-side on every request.
 
 The desktop app stores sessions in **localStorage** — necessary because the desktop is a fully static export with no server.
 
 ---
 
+## Supabase Storage setup
+
+Create a private bucket called `wav-files` in the Supabase dashboard (Storage → New bucket). Then add two RLS policies:
+
+**INSERT policy** — allows uploads:
+```sql
+CREATE POLICY "wav-files: authenticated users can upload"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'wav-files' AND auth.role() = 'authenticated');
+```
+
+**SELECT policy** — allows signed URL generation:
+```sql
+CREATE POLICY "wav-files: authenticated users can read own files"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (bucket_id = 'wav-files' AND auth.role() = 'authenticated');
+```
+
+---
+
 ## Known limitations
 
-- No `.als` merge conflict resolution. If two people edit the same project, you'll need to sort it out in Ableton manually.
-- Requires "Collect All and Save" in Ableton before pushing, otherwise samples referenced from outside the project folder won't be captured.
-- Plugin states are not version-controlled. Missing VSTs will show as Ableton's native "ghost plugins" when loading an old snapshot on a different machine.
+- **No merge conflict resolution.** If two people edit the same project, changes must be reconciled manually in Ableton.
+- **Requires "Collect All and Save" in Ableton** before pushing, otherwise samples referenced from outside the project folder won't be captured by the hash scanner.
+- **Plugin states are not version-controlled.** Missing VSTs will show as Ableton's native "ghost plugins" when loading a snapshot on a different machine.
+- **Signed audio URLs expire after 1 hour.** Long browser sessions on the commit detail page will need a page reload to re-generate playback links.
+- **Next.js 14 has known CVEs.** Upgrade to 15+ before production use (`npm install next@latest` in both `apps/web` and `apps/desktop`).

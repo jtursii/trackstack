@@ -114,6 +114,11 @@ export default function DesktopPage() {
     setError(null)
   }, [])
 
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut()
+    // onAuthStateChange listener handles the transition to { phase: 'auth' }
+  }, [])
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="h-screen flex flex-col select-none">
@@ -126,6 +131,7 @@ export default function DesktopPage() {
       {appState.phase === 'welcome' && (
         <WelcomeView
           onSelectProject={handleSelectProject}
+          onSignOut={handleSignOut}
           error={error}
         />
       )}

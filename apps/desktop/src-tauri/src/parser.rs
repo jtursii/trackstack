@@ -127,7 +127,8 @@ fn collect_wavs_recursive(
             .unwrap_or(false)
         {
             let rel = path.strip_prefix(base).unwrap_or(&path);
-            let key = rel.to_string_lossy().into_owned();
+            // Normalise to forward slashes so keys are consistent across OSes.
+            let key = rel.to_string_lossy().replace('\\', "/");
             let hash = hash_file(&path)?;
             map.insert(key, hash);
         }
