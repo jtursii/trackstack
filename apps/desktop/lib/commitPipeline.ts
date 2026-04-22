@@ -25,6 +25,11 @@ export async function runCommitPipeline(
 ): Promise<PipelineResult> {
   const { projectName, projectPath, snapshot, diff, commitMessage } = opts
 
+  // ── 0. Empty-diff guard ──────────────────────────────────────────────────
+  if (diff.new_files.length === 0 && diff.modified_files.length === 0 && diff.deleted_files.length === 0) {
+    return { ok: false, stepFailed: 'pre-check', error: 'Nothing to push. No changes detected since your last commit.' }
+  }
+
   // Derive the absolute Samples/ directory from the .als path.
   // On macOS paths are POSIX; normalise backslashes just in case.
   const parts = projectPath.replace(/\\/g, '/').split('/')
@@ -53,7 +58,7 @@ export async function runCommitPipeline(
   onProgress({ step: 'commit' })
   const { data: commit, error: commitErr } = await supabase
     .from('commits')
-    .insert({ project_id: project.id, message: commitMessage, track_names: snapshot.track_names })
+    .insert({ project_id: project.id, message: commitMessage, track_names: snapshot.tracks.map(t => t.name) })
     .select()
     .single()
 

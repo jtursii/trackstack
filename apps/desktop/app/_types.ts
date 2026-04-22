@@ -1,5 +1,10 @@
+export interface TrackEntry {
+  name: string
+  kind: 'audio' | 'midi'
+}
+
 export interface ProjectSnapshot {
-  track_names: string[]
+  tracks: TrackEntry[]
   /** Relative path from Samples/ directory → SHA-256 hex digest */
   samples: Record<string, string>
 }

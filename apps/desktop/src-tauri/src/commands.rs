@@ -5,8 +5,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TrackEntry {
+    pub name: String,
+    /// "audio" for AudioTrack nodes, "midi" for MidiTrack nodes.
+    pub kind: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProjectSnapshot {
-    pub track_names: Vec<String>,
+    pub tracks: Vec<TrackEntry>,
     /// Relative path from the project's Samples/ directory -> SHA-256 hex digest.
     /// Keys always use forward slashes regardless of host OS.
     pub samples: HashMap<String, String>,
@@ -56,7 +63,11 @@ pub fn parse_project(project_path: String) -> Result<ProjectSnapshot, String> {
 
     let data = fs::read(&als_path).map_err(|e| format!("Cannot read project file: {e}"))?;
     let xml = parser::decompress_als(&data)?;
-    let track_names = parser::parse_track_names(&xml);
+
+    let tracks = parser::parse_tracks(&xml)
+        .into_iter()
+        .map(|(name, kind)| TrackEntry { name, kind })
+        .collect();
 
     // PathBuf::join always produces a correct platform path.
     let samples_dir: PathBuf = als_path
@@ -66,15 +77,23 @@ pub fn parse_project(project_path: String) -> Result<ProjectSnapshot, String> {
 
     let samples = parser::collect_wav_hashes(&samples_dir)?;
 
-    Ok(ProjectSnapshot {
-        track_names,
-        samples,
-    })
+    Ok(ProjectSnapshot { tracks, samples })
 }
 
 #[tauri::command]
 pub fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
     fs::read(Path::new(&path)).map_err(|e| format!("Cannot read file: {e}"))
+}
+
+#[tauri::command]
+pub async fn write_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
+    let p = Path::new(&path);
+    if let Some(parent) = p.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Cannot create directory {:?}: {e}", parent))?;
+    }
+    fs::write(p, &bytes).map_err(|e| format!("Cannot write file {:?}: {e}", p))?;
+    Ok(())
 }
 
 #[tauri::command]

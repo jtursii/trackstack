@@ -16,28 +16,36 @@ pub fn decompress_als(data: &[u8]) -> Result<String, String> {
     Ok(xml)
 }
 
-/// Extract track names from Ableton Live XML.
+/// Extract tracks from Ableton Live XML, returning `(name, kind)` pairs.
 ///
 /// Looks for <EffectiveName Value="..."/> inside <Name> elements that are
 /// direct children of <AudioTrack> or <MidiTrack>. Empty values are skipped.
-pub fn parse_track_names(xml: &str) -> Vec<String> {
+/// `kind` is `"audio"` for AudioTrack nodes and `"midi"` for MidiTrack nodes.
+pub fn parse_tracks(xml: &str) -> Vec<(String, String)> {
     let mut reader = Reader::from_str(xml);
     let mut buf = Vec::new();
-    let mut names: Vec<String> = Vec::new();
+    let mut tracks: Vec<(String, String)> = Vec::new();
 
     let mut depth: u32 = 0;
     let mut track_depth: u32 = 0;
     let mut in_track = false;
     let mut in_name = false;
+    let mut current_kind = String::new();
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
                 depth += 1;
                 match e.name().as_ref() {
-                    b"AudioTrack" | b"MidiTrack" if !in_track => {
+                    b"AudioTrack" if !in_track => {
                         in_track = true;
                         track_depth = depth;
+                        current_kind = "audio".to_string();
+                    }
+                    b"MidiTrack" if !in_track => {
+                        in_track = true;
+                        track_depth = depth;
+                        current_kind = "midi".to_string();
                     }
                     b"Name" if in_track && !in_name && depth == track_depth + 1 => {
                         in_name = true;
@@ -45,7 +53,7 @@ pub fn parse_track_names(xml: &str) -> Vec<String> {
                     // Handle non-self-closing <EffectiveName> (unusual but valid XML)
                     b"EffectiveName" if in_name => {
                         if let Some(name) = extract_value_attr(&e) {
-                            names.push(name);
+                            tracks.push((name, current_kind.clone()));
                         }
                     }
                     _ => {}
@@ -55,7 +63,7 @@ pub fn parse_track_names(xml: &str) -> Vec<String> {
                 // Ableton always writes <EffectiveName Value="..."/> as self-closing
                 if in_name && e.name().as_ref() == b"EffectiveName" {
                     if let Some(name) = extract_value_attr(&e) {
-                        names.push(name);
+                        tracks.push((name, current_kind.clone()));
                     }
                 }
             }
@@ -78,7 +86,7 @@ pub fn parse_track_names(xml: &str) -> Vec<String> {
         buf.clear();
     }
 
-    names
+    tracks
 }
 
 fn extract_value_attr(e: &quick_xml::events::BytesStart<'_>) -> Option<String> {
@@ -151,8 +159,8 @@ mod tests {
         enc.finish().unwrap()
     }
 
-    /// Minimal .als XML fixture: two named tracks plus one track whose
-    /// EffectiveName is empty (should be excluded from results).
+    /// Minimal .als XML fixture: two named tracks (AudioTrack + MidiTrack) plus
+    /// one track whose EffectiveName is empty (should be excluded from results).
     const FIXTURE_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <Ableton MajorVersion="11">
   <LiveSet>
@@ -180,23 +188,34 @@ mod tests {
 </Ableton>"#;
 
     #[test]
-    fn decompress_and_parse_track_names() {
+    fn decompress_and_parse_tracks() {
         let gz = make_gz(FIXTURE_XML);
         let xml = decompress_als(&gz).expect("decompression should succeed");
-        let names = parse_track_names(&xml);
-        assert_eq!(names, vec!["Kick", "Bass Synth"]);
+        let tracks = parse_tracks(&xml);
+        assert_eq!(
+            tracks,
+            vec![
+                ("Kick".to_string(), "audio".to_string()),
+                ("Bass Synth".to_string(), "midi".to_string()),
+            ]
+        );
     }
 
     #[test]
     fn empty_effective_name_is_excluded() {
-        // Direct XML parse — no gzip round-trip needed to cover this edge case.
-        let names = parse_track_names(FIXTURE_XML);
-        assert_eq!(names, vec!["Kick", "Bass Synth"]);
+        let tracks = parse_tracks(FIXTURE_XML);
+        assert_eq!(
+            tracks,
+            vec![
+                ("Kick".to_string(), "audio".to_string()),
+                ("Bass Synth".to_string(), "midi".to_string()),
+            ]
+        );
     }
 
     #[test]
     fn xml_with_no_tracks_returns_empty_vec() {
         let xml = r#"<?xml version="1.0"?><Ableton><LiveSet><Tracks/></LiveSet></Ableton>"#;
-        assert!(parse_track_names(xml).is_empty());
+        assert!(parse_tracks(xml).is_empty());
     }
 }
