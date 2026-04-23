@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .font-brand {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 700;
+  }
+}
+
 /* Background orbs */
 @keyframes float {
   0%, 100% { transform: translateY(0px) rotate(0deg); }

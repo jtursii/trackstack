@@ -115,24 +115,32 @@ export default function StagingArea({
         const lastPushRaw = localStorage.getItem(`trackstack:lastpush:${projectPath}`)
         const lastPushTimestamp = lastPushRaw ? (JSON.parse(lastPushRaw) as LastPush).timestamp : null
 
+        console.log('[trackstack] localTimestamp:', lastPushTimestamp)
+
+        if (!lastPushTimestamp) {
+          // No local push record on this machine — can't determine if behind
+          if (!cancelled) setCloudState({ status: 'not-on-cloud' })
+          return
+        }
+
         const latestCommit = await getLatestCloudCommit(cloudProject.id)
         if (!latestCommit) {
           if (!cancelled) setCloudState({ status: 'up-to-date' })
           return
         }
 
-        if (!lastPushTimestamp) {
-          if (!cancelled) setCloudState({ status: 'behind', commitsAhead: 1, latestCommit })
+        console.log('[trackstack] cloudCommit.created_at:', latestCommit.created_at)
+        const isCloudNewer = new Date(latestCommit.created_at) > new Date(lastPushTimestamp)
+        console.log('[trackstack] isCloudNewer:', isCloudNewer)
+
+        if (!isCloudNewer) {
+          if (!cancelled) setCloudState({ status: 'up-to-date' })
           return
         }
 
         const ahead = await getCommitsAfterTimestamp(cloudProject.id, lastPushTimestamp)
         if (!cancelled) {
-          setCloudState(
-            ahead > 0
-              ? { status: 'behind', commitsAhead: ahead, latestCommit }
-              : { status: 'up-to-date' },
-          )
+          setCloudState({ status: 'behind', commitsAhead: ahead || 1, latestCommit })
         }
       } catch {
         if (!cancelled) setCloudState({ status: 'error' })

@@ -41,7 +41,7 @@ export default function SignupPage() {
         <div className="w-full max-w-sm text-center">
           <Link
             href="/"
-            className="inline-block text-lg font-bold tracking-[0.3em] uppercase text-white mb-8 hover:text-gray-300 transition-colors"
+            className="font-brand inline-block text-lg tracking-[0.3em] uppercase text-white mb-8 hover:text-gray-300 transition-colors"
           >
             Trackstack
           </Link>
@@ -76,7 +76,7 @@ export default function SignupPage() {
         <div className="text-center mb-8">
           <Link
             href="/"
-            className="inline-block text-lg font-bold tracking-[0.3em] uppercase text-white mb-6 hover:text-gray-300 transition-colors"
+            className="font-brand inline-block text-lg tracking-[0.3em] uppercase text-white mb-6 hover:text-gray-300 transition-colors"
           >
             Trackstack
           </Link>

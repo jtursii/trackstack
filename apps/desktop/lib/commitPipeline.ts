@@ -58,7 +58,15 @@ export async function runCommitPipeline(
   onProgress({ step: 'commit' })
   const { data: commit, error: commitErr } = await supabase
     .from('commits')
-    .insert({ project_id: project.id, message: commitMessage, track_names: snapshot.tracks.map(t => t.name) })
+    .insert({
+      project_id: project.id,
+      message: commitMessage,
+      track_names: snapshot.tracks.map((t) => t.name),
+      bpm: snapshot.bpm,
+      clip_data: snapshot.clip_data,
+      track_colors: snapshot.track_colors,
+      committed_by: user.id,
+    })
     .select()
     .single()
 

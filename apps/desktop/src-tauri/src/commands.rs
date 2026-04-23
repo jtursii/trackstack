@@ -17,6 +17,9 @@ pub struct ProjectSnapshot {
     /// Relative path from the project's Samples/ directory -> SHA-256 hex digest.
     /// Keys always use forward slashes regardless of host OS.
     pub samples: HashMap<String, String>,
+    pub bpm: f64,
+    pub clip_data: Vec<parser::ClipRegion>,
+    pub track_colors: Vec<parser::TrackColor>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -69,7 +72,11 @@ pub fn parse_project(project_path: String) -> Result<ProjectSnapshot, String> {
         .map(|(name, kind)| TrackEntry { name, kind })
         .collect();
 
-    // PathBuf::join always produces a correct platform path.
+    let xml_bytes = xml.as_bytes();
+    let bpm = parser::extract_bpm(xml_bytes)?;
+    let clip_data = parser::extract_clips(xml_bytes)?;
+    let track_colors = parser::extract_track_colors(xml_bytes)?;
+
     let samples_dir: PathBuf = als_path
         .parent()
         .ok_or("Invalid project path: no parent directory")?
@@ -77,7 +84,13 @@ pub fn parse_project(project_path: String) -> Result<ProjectSnapshot, String> {
 
     let samples = parser::collect_wav_hashes(&samples_dir)?;
 
-    Ok(ProjectSnapshot { tracks, samples })
+    Ok(ProjectSnapshot {
+        tracks,
+        samples,
+        bpm,
+        clip_data,
+        track_colors,
+    })
 }
 
 #[tauri::command]

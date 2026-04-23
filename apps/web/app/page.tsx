@@ -160,7 +160,7 @@ export default function LandingPage() {
 
       {/* ── Navigation ──────────────────────────────────────────────── */}
       <nav className="relative z-10 flex justify-between items-center px-6 md:px-10 py-6">
-        <div className="text-white text-2xl font-bold tracking-wider">trackstack</div>
+        <div className="font-brand text-white text-2xl tracking-wider">trackstack</div>
         <div className="flex items-center gap-6 text-gray-300 text-sm">
           <button
             className="hover:text-white transition-colors hidden md:block"
@@ -192,7 +192,7 @@ export default function LandingPage() {
         >
           {/* Title */}
           <div className="mb-8">
-            <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-transparent bg-gradient-to-r from-white via-gray-300 to-gray-500 bg-clip-text mb-6">
+            <h1 className="font-brand text-6xl md:text-8xl font-black tracking-tighter text-transparent bg-gradient-to-r from-white via-gray-300 to-gray-500 bg-clip-text mb-6">
               trackstack
             </h1>
 

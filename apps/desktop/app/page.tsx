@@ -38,9 +38,18 @@ function loadSnapshot(projectPath: string): ProjectSnapshot | null {
       return {
         tracks: parsed.track_names.map((name: string) => ({ name, kind: 'audio' as const })),
         samples: parsed.samples ?? {},
+        bpm: parsed.bpm ?? 120,
+        clip_data: parsed.clip_data ?? [],
+        track_colors: parsed.track_colors ?? [],
       }
     }
-    return parsed as ProjectSnapshot
+    // Migration: snapshots saved before the visual metadata fields
+    return {
+      ...parsed,
+      bpm: parsed.bpm ?? 120,
+      clip_data: parsed.clip_data ?? [],
+      track_colors: parsed.track_colors ?? [],
+    } as ProjectSnapshot
   } catch {
     return null
   }
@@ -52,7 +61,7 @@ function saveSnapshot(projectPath: string, snapshot: ProjectSnapshot) {
   } catch {}
 }
 
-const EMPTY_SNAPSHOT: ProjectSnapshot = { tracks: [], samples: {} }
+const EMPTY_SNAPSHOT: ProjectSnapshot = { tracks: [], samples: {}, bpm: 120, clip_data: [], track_colors: [] }
 
 // ── Page ──────────────────────────────────────────────────────────────────
 

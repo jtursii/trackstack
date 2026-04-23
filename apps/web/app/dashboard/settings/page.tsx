@@ -1,9 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
+import ProfileForm from './_components/ProfileForm'
+
+interface Profile {
+  id: string
+  display_name: string | null
+  username: string | null
+  bio: string | null
+  avatar_url: string | null
+}
 
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const email = user?.email ?? ''
+
+  const { data: profileRaw } = user
+    ? await supabase.from('profiles').select('id, display_name, username, bio, avatar_url').eq('id', user.id).single()
+    : { data: null }
+
+  const profile = profileRaw as Profile | null
 
   return (
     <div className="px-8 py-10 max-w-2xl">
@@ -16,23 +31,26 @@ export default async function SettingsPage() {
       <div className="bg-gray-900/70 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-sm mb-6">
         <div className="px-6 sm:px-8 py-6 border-b border-gray-800">
           <h2 className="text-white font-semibold text-lg">Profile</h2>
-          <p className="text-gray-500 text-sm mt-0.5">Your account information</p>
+          <p className="text-gray-500 text-sm mt-0.5">Your public profile information</p>
         </div>
-        <div className="px-6 sm:px-8 py-6 space-y-5">
+        <div className="px-6 sm:px-8 py-6">
+          <ProfileForm profile={profile} email={email} />
+        </div>
+      </div>
+
+      {/* Account section */}
+      <div className="bg-gray-900/70 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-sm mb-6">
+        <div className="px-6 sm:px-8 py-6 border-b border-gray-800">
+          <h2 className="text-white font-semibold text-lg">Account</h2>
+          <p className="text-gray-500 text-sm mt-0.5">Your login credentials</p>
+        </div>
+        <div className="px-6 sm:px-8 py-6">
           <div>
             <label className="block text-gray-400 text-xs uppercase tracking-[0.2em] mb-2">
               Email
             </label>
             <div className="bg-gray-800/60 border border-gray-700 rounded-xl px-4 py-2.5 text-gray-300 text-sm">
               {email}
-            </div>
-          </div>
-          <div>
-            <label className="block text-gray-400 text-xs uppercase tracking-[0.2em] mb-2">
-              Username
-            </label>
-            <div className="bg-gray-800/60 border border-gray-700 rounded-xl px-4 py-2.5 text-gray-300 text-sm">
-              {email.split('@')[0]}
             </div>
           </div>
         </div>

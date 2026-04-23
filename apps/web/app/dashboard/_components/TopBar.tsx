@@ -32,7 +32,7 @@ export default function TopBar() {
     <div className="h-14 border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm flex items-center px-8 gap-3 shrink-0">
       <Link
         href="/dashboard"
-        className="text-white font-bold tracking-wider hover:text-gray-300 transition-colors text-sm"
+        className="font-brand text-white tracking-wider hover:text-gray-300 transition-colors text-sm"
       >
         trackstack
       </Link>

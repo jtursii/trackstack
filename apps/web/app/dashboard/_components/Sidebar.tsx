@@ -3,9 +3,17 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
+import { Avatar } from '@trackstack/ui'
+
+interface Profile {
+  display_name?: string | null
+  username?: string | null
+  avatar_url?: string | null
+}
 
 interface Props {
   email: string
+  profile?: Profile | null
   projects: { id: string; name: string }[]
 }
 
@@ -53,12 +61,11 @@ const NAV_ITEMS = [
   { label: 'Settings', href: '/dashboard/settings', icon: <SettingsIcon /> },
 ] as const
 
-export default function Sidebar({ email, projects }: Props) {
+export default function Sidebar({ email, profile, projects }: Props) {
   const pathname = usePathname()
   const router = useRouter()
 
-  const username = email.split('@')[0] ?? ''
-  const initials = username.slice(0, 2).toUpperCase()
+  const displayName = profile?.display_name?.trim() || profile?.username?.trim() || email.split('@')[0] || ''
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard'
@@ -77,12 +84,14 @@ export default function Sidebar({ email, projects }: Props) {
 
       {/* ── Profile block ──────────────────────────────────── */}
       <div className="px-4 py-6 border-b border-gray-800">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-600 to-gray-800 border border-gray-600 flex items-center justify-center mb-3">
-          <span className="text-white font-semibold text-sm">{initials}</span>
+        <div className="mb-3">
+          <Avatar profile={profile} email={email} size="lg" />
         </div>
-        <p className="text-white font-semibold text-sm">{username}</p>
+        <p className="text-white font-semibold text-sm">{displayName}</p>
         <p className="text-gray-500 text-xs mt-0.5 truncate">{email}</p>
-        <span className="text-gray-600 text-xs mt-1 block">Edit profile</span>
+        <Link href="/dashboard/settings" className="text-gray-600 text-xs mt-1 block hover:text-gray-400 transition-colors">
+          Edit profile
+        </Link>
       </div>
 
       {/* ── Nav items ──────────────────────────────────────── */}

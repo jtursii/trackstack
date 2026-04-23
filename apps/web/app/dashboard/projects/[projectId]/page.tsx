@@ -1,6 +1,32 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getAbletonColor } from '@trackstack/core'
+import { Avatar } from '@trackstack/ui'
+import TimelineThumbnail from '../../_components/TimelineThumbnail'
+
+interface ClipRegion {
+  track_name: string
+  track_index: number
+  clip_name: string
+  start_beat: number
+  end_beat: number
+  color_index: number
+  kind: string
+}
+
+interface TrackColor {
+  name: string
+  kind: string
+  color_index: number
+}
+
+interface CommitProfile {
+  id: string
+  display_name: string | null
+  username: string | null
+  avatar_url: string | null
+}
 
 interface CommitRow {
   id: string
@@ -8,6 +34,10 @@ interface CommitRow {
   message: string
   track_names: string[]
   created_at: string
+  bpm: number | null
+  clip_data: ClipRegion[] | null
+  track_colors: TrackColor[] | null
+  profiles: CommitProfile | null
 }
 
 interface ProjectRow {
@@ -35,7 +65,23 @@ function formatDateShort(iso: string): string {
   })
 }
 
-const TABS = ['Commits', 'Files', 'Settings'] as const
+function BpmBadge({ bpm }: { bpm: number }) {
+  return (
+    <span className="bg-gray-800 border border-gray-700 rounded-full px-2 py-0.5 text-gray-400 text-xs font-mono whitespace-nowrap">
+      {Math.round(bpm)} BPM
+    </span>
+  )
+}
+
+function BpmDelta({ current, previous }: { current: number; previous: number }) {
+  if (Math.abs(current - previous) < 0.01) return null
+  const up = current > previous
+  return (
+    <span className={`text-xs font-medium ${up ? 'text-yellow-400' : 'text-blue-400'}`}>
+      {up ? '↑' : '↓'} BPM
+    </span>
+  )
+}
 
 export default async function ProjectPage({
   params,
@@ -55,11 +101,21 @@ export default async function ProjectPage({
 
   const { data: commitsRaw } = await supabase
     .from('commits')
-    .select('*')
+    .select(
+      'id, message, created_at, track_names, bpm, clip_data, track_colors, profiles!committed_by(id, display_name, username, avatar_url)',
+    )
     .eq('project_id', params.projectId)
     .order('created_at', { ascending: false })
 
   const commits = (commitsRaw as CommitRow[] | null) ?? []
+
+  const { data: latestCommit } = await supabase
+    .from('commits')
+    .select('id')
+    .eq('project_id', params.projectId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
 
   const commitCount = commits.length
   const uniqueTracks = new Set(commits.flatMap((c) => c.track_names))
@@ -106,19 +162,39 @@ export default async function ProjectPage({
 
         {/* ── Tabs ────────────────────────────────────────────────────── */}
         <div className="border-b border-gray-800 px-6 sm:px-10 py-4 flex gap-2 text-sm uppercase tracking-wide">
-          {TABS.map((tab) => (
-            <div
-              key={tab}
-              className={
-                tab === 'Commits'
-                  ? 'bg-white text-black font-semibold rounded-lg px-3 py-2'
-                  : 'text-gray-600 border border-transparent px-3 py-2 cursor-default'
-              }
+          <Link
+            href={`/dashboard/projects/${params.projectId}`}
+            className="bg-white text-black font-semibold rounded-lg px-3 py-2"
+          >
+            Commits
+          </Link>
+          {latestCommit?.id ? (
+            <Link
+              href={`/dashboard/projects/${params.projectId}/commit/${latestCommit.id}`}
+              className="text-gray-600 border border-transparent px-3 py-2 hover:text-gray-400 transition-colors"
             >
-              {tab}
+              Files
+            </Link>
+          ) : (
+            <div
+              aria-disabled="true"
+              className="text-gray-700 border border-transparent px-3 py-2 cursor-default"
+            >
+              Files
             </div>
-          ))}
+          )}
+          <div className="text-gray-600 border border-transparent px-3 py-2 cursor-default">
+            Settings
+          </div>
         </div>
+
+        {!latestCommit?.id && (
+          <div className="border-b border-gray-800 px-6 sm:px-10 py-4">
+            <p className="text-gray-500 text-sm">
+              No files yet. Push your first commit from the desktop app.
+            </p>
+          </div>
+        )}
 
         {/* ── Branch / meta ───────────────────────────────────────────── */}
         <div className="border-b border-gray-800 px-6 sm:px-10 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -141,7 +217,7 @@ export default async function ProjectPage({
           )}
         </div>
 
-        {/* ── Commit list ─────────────────────────────────────────────── */}
+        {/* ── Tab content ─────────────────────────────────────────────── */}
         <div className="px-6 sm:px-10 py-6">
           <div className="flex items-center gap-3 text-gray-400 text-xs uppercase tracking-[0.3em] mb-4">
             Commit History
@@ -157,44 +233,64 @@ export default async function ProjectPage({
               {commits.map((commit, index) => {
                 const visibleTracks = commit.track_names.slice(0, 3)
                 const overflow = commit.track_names.length - 3
+                const prevCommit = commits[index + 1] ?? null
+                const clips = commit.clip_data ?? []
+                const trackColors = commit.track_colors ?? []
+                const hasThumbnail = clips.length > 0
 
                 return (
-                  <Link
+                  <div
                     key={commit.id}
-                    href={`/dashboard/projects/${project.id}/commit/${commit.id}`}
-                    className={`flex items-center gap-4 px-5 py-4 bg-gradient-to-r from-gray-900/50 to-gray-900/30 hover:from-gray-800/50 transition-all group ${
+                    className={`bg-gradient-to-r from-gray-900/50 to-gray-900/30 ${
                       index !== commits.length - 1 ? 'border-b border-gray-800/80' : ''
                     }`}
                   >
-                    <span className="text-lg shrink-0">🎵</span>
-
-                    <span className="font-medium text-white group-hover:text-gray-100 transition-colors min-w-0 truncate flex-1">
-                      {commit.message}
-                    </span>
-
-                    {commit.track_names.length > 0 && (
-                      <div className="hidden md:flex items-center gap-1.5 shrink-0">
-                        {visibleTracks.map((name, i) => (
-                          <span
-                            key={i}
-                            className="border border-gray-700 rounded-full px-2 py-0.5 text-gray-400 text-xs"
-                          >
-                            {name}
-                          </span>
-                        ))}
-                        {overflow > 0 && (
-                          <span className="text-gray-600 text-xs">+{overflow} more</span>
-                        )}
+                    {hasThumbnail && (
+                      <div className="border-b border-gray-800/40 overflow-hidden">
+                        <TimelineThumbnail clips={clips} trackColors={trackColors} height={40} />
                       </div>
                     )}
 
-                    <time
-                      dateTime={commit.created_at}
-                      className="shrink-0 text-gray-500 text-xs uppercase tracking-[0.3em] hidden sm:block"
+                    <Link
+                      href={`/dashboard/projects/${project.id}/commit/${commit.id}`}
+                      className="flex items-center gap-4 px-5 py-4 hover:bg-gray-800/20 transition-all group"
                     >
-                      {formatDate(commit.created_at)}
-                    </time>
-                  </Link>
+                      <Avatar profile={commit.profiles} size="sm" />
+
+                      <span className="font-medium text-white group-hover:text-gray-100 transition-colors min-w-0 truncate flex-1">
+                        {commit.message}
+                      </span>
+
+                      {commit.track_names.length > 0 && (
+                        <div className="hidden md:flex items-center gap-1.5 shrink-0">
+                          {visibleTracks.map((name, i) => (
+                            <span
+                              key={i}
+                              className="border border-gray-700 rounded-full px-2 py-0.5 text-gray-400 text-xs"
+                            >
+                              {name}
+                            </span>
+                          ))}
+                          {overflow > 0 && (
+                            <span className="text-gray-600 text-xs">+{overflow} more</span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="hidden sm:flex items-center gap-2 shrink-0">
+                        {commit.bpm != null && <BpmBadge bpm={commit.bpm} />}
+                        {commit.bpm != null && prevCommit?.bpm != null && (
+                          <BpmDelta current={commit.bpm} previous={prevCommit.bpm} />
+                        )}
+                        <time
+                          dateTime={commit.created_at}
+                          className="text-gray-500 text-xs uppercase tracking-[0.3em]"
+                        >
+                          {formatDate(commit.created_at)}
+                        </time>
+                      </div>
+                    </Link>
+                  </div>
                 )
               })}
             </div>
